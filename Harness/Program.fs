@@ -1,0 +1,27 @@
+﻿// Learn more about F# at http://fsharp.net
+
+open Furious.Meta
+
+type person = {
+    firstname: string
+    lastname: string
+    homeAddress: address
+    altAddresses: address seq
+}
+and address = {
+    street1: string
+    zip: string
+}
+
+type personzip = {
+    lastname: string
+    zip: string
+}
+
+let db = Datastore()
+// simple filtering
+// select firstname, lastname, homeAddressId from people p left outer join addresses a on p.homeAddressId = a.addressId where a.zip = '60614'
+let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
+    
+printf "Done. Press any key to continue." |> ignore
+System.Console.ReadLine() |> ignore
