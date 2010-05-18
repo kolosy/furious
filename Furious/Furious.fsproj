@@ -39,6 +39,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Interfaces.fs" />
+    <Compile Include="Union.fs" />
+    <Compile Include="Expression.fs" />
     <Compile Include="Meta.fs" />
     <Compile Include="Samples.fs" />
     <None Include="Script.fsx" />

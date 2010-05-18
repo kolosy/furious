@@ -21,7 +21,11 @@ type personzip = {
 let db = Datastore()
 // simple filtering
 // select firstname, lastname, homeAddressId from people p left outer join addresses a on p.homeAddressId = a.addressId where a.zip = '60614'
-let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
+//printfn "Case 1" |> ignore
+//let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
+
+printfn "Case 2" |> ignore
+let (neighbor2: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> (p.homeAddress.zip = "60614") && ((p.firstname = "alex") || (p.lastname = "pedenko"))) people @>
     
 printf "Done. Press any key to continue." |> ignore
 System.Console.ReadLine() |> ignore
