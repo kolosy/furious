@@ -33,8 +33,8 @@ module Meta =
 
         member private x.Mapper with get() = match keyMapper with | Some m -> m | None -> defaultMapper
         member x.Yield (expr: Expr<(seq<'a>->seq<'b>)>) = 
-            traverse [] x.Mapper expr
+            traverse Map.empty x.Mapper expr
             Seq.empty<'b>
         member x.Compute (expr: Expr<(seq<'a>->'b)>) = 
-            traverse [] x.Mapper expr
+            traverse Map.empty x.Mapper expr
             Seq.empty<'b>

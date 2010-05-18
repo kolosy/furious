@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Interfaces.fs" />
+    <Compile Include="TableGraph.fs" />
     <Compile Include="Union.fs" />
     <Compile Include="Expression.fs" />
     <Compile Include="Meta.fs" />
