@@ -20,27 +20,45 @@ module Meta =
         let printExpr mode expr = printf "%s - %A" mode expr
 
         let rec traverse unions mapper = function
+        | Let (var, valExpr, nextExpr) ->
+            match nextExpr with
+            | Lambda (v, expr) -> 
+                match expr with 
+                | SpecificCall <@ Seq.filter @> (ex,types,h::t) -> 
+                    match valExpr with
+                    | Lambda (v, expr) -> traverseExpression unions mapper expr
+                    | _ -> unions, ""
+                | _ -> unions, ""
+            | _ -> unions, ""
         | SpecificCall <@ Seq.filter @> (ex,types,h::t) -> 
             match h with
-            | Lambda (v, expr) -> 
-                let newUnions, e = traverseExpression unions mapper expr
-                printfn "union: %A" newUnions |> ignore
-                printfn "the expression: %s" e |> ignore
-                printfn "from clause: %s" (
-                                            Map.toList newUnions 
-                                            |> List.unzip 
-                                            |> snd 
-                                            |> computeFromClause []
-                                            |> List.fold (+) "")
-            | _ -> ()
-        | ShapeVar v -> ()
+            | Lambda (v, expr) -> traverseExpression unions mapper expr
+            | _ -> unions, ""
+        | ShapeVar v -> unions, ""
         | ShapeLambda (v,expr) -> traverse unions mapper expr
-        | ShapeCombination (o, exprs) -> List.map (traverse unions mapper) exprs |> ignore
+        | ShapeCombination (o, exprs) -> 
+            List.fold (fun (u,e) expr -> traverse unions mapper expr) (unions, "") exprs
 
         member private x.Mapper with get() = match keyMapper with | Some m -> m | None -> defaultMapper
         member x.Yield (expr: Expr<(seq<'a>->seq<'b>)>) = 
-            traverse Map.empty x.Mapper expr
+            let newUnions,e = traverse Map.empty x.Mapper expr
+            printfn "union: %A" newUnions |> ignore
+            printfn "the expression: %s" e |> ignore
+            printfn "from clause: %s" (
+                                        Map.toList newUnions 
+                                        |> List.unzip 
+                                        |> snd 
+                                        |> computeFromClause []
+                                        |> List.fold (+) "")
             Seq.empty<'b>
         member x.Compute (expr: Expr<(seq<'a>->'b)>) = 
-            traverse Map.empty x.Mapper expr
+            let newUnions,e = traverse Map.empty x.Mapper expr
+            printfn "union: %A" newUnions |> ignore
+            printfn "the expression: %s" e |> ignore
+            printfn "from clause: %s" (
+                                        Map.toList newUnions 
+                                        |> List.unzip 
+                                        |> snd 
+                                        |> computeFromClause []
+                                        |> List.fold (+) "")
             Seq.empty<'b>

@@ -25,7 +25,7 @@ let db = Datastore()
 //let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
 
 printfn "Case 2" |> ignore
-let (neighbor2: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> (p.homeAddress.zip = "60614") && ((p.firstname = "alex") || (p.lastname = "pedenko"))) people @>
+let (neighbor2: person seq) = db.Yield <@ Seq.filter (fun p -> (p.homeAddress.zip = "60614") && ((p.firstname = "alex") || (p.lastname = "pedenko"))) @>
     
 printf "Done. Press any key to continue." |> ignore
 System.Console.ReadLine() |> ignore
