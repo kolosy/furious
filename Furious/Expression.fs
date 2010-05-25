@@ -39,6 +39,6 @@ module Expression =
             let newUnions2, newRight = traverseExpression newUnions1 mapper right
             newUnions2, sprintf "(%s) %s (%s)" newLeft opString newRight
         else
-            let newUnions1, table1, alias1 = getValue unions mapper left
-            let newUnions2, table2, alias2 = getValue newUnions1 mapper right
+            let newUnions1, _, alias1 = getValue unions mapper left
+            let newUnions2, _, alias2 = getValue newUnions1 mapper right
             newUnions2, alias1 + opString + alias2

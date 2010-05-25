@@ -28,12 +28,17 @@ module Union =
     | _ as e -> failwith <| sprintf "%A is an unsupported element" e
 
     let rec generateAlias (name: string) unions = 
-       (name.[0..1]) + name.Length.ToString()
+       (name.[0..1]) + name.Length.ToString() + (new System.Random()).Next(100).ToString()
 
     let tryFindTable alias name unions =
         match Map.tryFind name unions with
         | Some t -> fst t
         | None -> { name = name; alias = alias }
+
+    let tryFindVertex alias name unions =
+        match Map.tryFind name unions with
+        | Some t -> t
+        | None -> ({ name = name; alias = alias }, [])
 
     let rec buildUnionPath (unions: Map<string, vertex>) prevVertex = function
     | (tp,name,keyName)::[] -> 
@@ -43,13 +48,15 @@ module Union =
     | (tp,name,keyName)::t -> 
         match prevVertex with
         | Some vertex -> 
-            let newTable = (tryFindTable (generateAlias tp unions) tp unions), []
+            let newTable = ({ name = tp; alias = generateAlias tp unions }), []
+//            let newTable = (tryFindTable (generateAlias tp unions) tp unions), []
             let prevTable = connect vertex newTable name (match keyName with | Some name -> name | None -> failwith "keyname is required")
             let newUnions = update ((fst prevTable).name) prevTable unions
+            printf "%A" newUnions |> ignore
             buildUnionPath newUnions (Some newTable) t
         | None ->
-            let newTable = tryFindTable (generateAlias tp unions) tp unions
-            buildUnionPath unions (Some (newTable, [])) t
+            let newVertex = tryFindVertex (generateAlias tp unions) tp unions
+            buildUnionPath unions (Some newVertex) t
     | [] -> failwith "no union path to compute"
 
     let rec last = function
