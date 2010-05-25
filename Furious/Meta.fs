@@ -24,8 +24,14 @@ module Meta =
             match h with
             | Lambda (v, expr) -> 
                 let newUnions, e = traverseExpression unions mapper expr
-                printfn "union: %s" (computeFromClause newUnions) |> ignore
-                printfn "the expression is %s" e |> ignore
+                printfn "union: %A" newUnions |> ignore
+                printfn "the expression: %s" e |> ignore
+                printfn "from clause: %s" (
+                                            Map.toList newUnions 
+                                            |> List.unzip 
+                                            |> snd 
+                                            |> computeFromClause []
+                                            |> List.fold (+) "")
             | _ -> ()
         | ShapeVar v -> ()
         | ShapeLambda (v,expr) -> traverse unions mapper expr

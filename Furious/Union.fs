@@ -35,7 +35,7 @@ module Union =
         | Some t -> fst t
         | None -> { name = name; alias = alias }
 
-    let rec buildUnionPath (unions: Map<string, vertex>) prevVertex prevKey = function
+    let rec buildUnionPath (unions: Map<string, vertex>) prevVertex = function
     | (tp,name,keyName)::[] -> 
         match prevVertex with
         | Some (lastTable,_) -> lastTable.alias, unions
@@ -44,12 +44,12 @@ module Union =
         match prevVertex with
         | Some vertex -> 
             let newTable = (tryFindTable (generateAlias tp unions) tp unions), []
-            let prevTable = connect vertex newTable prevKey name
+            let prevTable = connect vertex newTable name (match keyName with | Some name -> name | None -> failwith "keyname is required")
             let newUnions = update ((fst prevTable).name) prevTable unions
-            buildUnionPath newUnions (Some newTable) (match keyName with | Some k -> k | None -> failwith "A key name is required") t
+            buildUnionPath newUnions (Some newTable) t
         | None ->
             let newTable = tryFindTable (generateAlias tp unions) tp unions
-            buildUnionPath unions (Some (newTable, [])) (match keyName with | Some k -> k | None -> failwith "A key name is required")  t
+            buildUnionPath unions (Some (newTable, [])) t
     | [] -> failwith "no union path to compute"
 
     let rec last = function
@@ -61,28 +61,28 @@ module Union =
         let path = getPropertyPath mapper expr
         if List.length path <= 2 then 
             unions, (match List.head path with | (tp,_,_) -> tp),
-                ( match path with | (f,_,_)::(_,s,_)::_ -> f + "." + s | _ -> failwith "malformed property path" )
+                ( match path with 
+                  | (f,_,_)::(_,s,_)::_ -> 
+                        match Map.tryFind f unions with
+                        | Some tbl -> (fst tbl).alias + "." + s 
+                        | None -> f + "." + s
+                  | _ -> failwith "malformed property path" )
         else
-            let alias, newUnions = buildUnionPath unions None "" path
+            let alias, newUnions = buildUnionPath unions None path
             newUnions, (match List.head path with | (tp,_,_) -> tp), alias + "." + (match last path with | _,v,_ -> v)
 
     let rec getValue unions mapper = function
     | Value (v, tp) -> unions, "", v.ToString()
     | _ as expr -> computeExpression expr unions mapper
 
-    let rec computeFromClauseForSegment previous graph = 
-        sprintf "%s %s"
-            (match previous with 
-             | "" -> sprintf "%s %s" (fst graph).table (fst graph).alias 
-             | _ -> previous)
-            (sprintf "inner join %s %s on %s.%s = %s.%s"
-                
+    let computeUnion (graph: vertex) isBeginning =
+        let table, edges = graph
 
-    let computeFromClause unions rootTables =
-        let segments = computeSegments <| condenseUnionMap Map.empty unions 
-        List.fold (fun state segment ->
-                        state + ", " + 
-                            match segment.unions with
-                            | [] -> sprintf "%s %s" segment.table segment.alias
-                            | _ -> computeFromClauseForSegment Map.empty [] segment.unions
-                ) "" segments
+        edges 
+        |> ((if isBeginning then (table.name + " as " + table.alias)
+                else "") 
+        |> List.fold (fun s (t,u) -> sprintf "%s inner join %s as %s on %s.%s = %s.%s" s t.name t.alias table.alias u.sourceColumn t.alias u.targetColumn))
+
+    let rec computeFromClause computedUnions = function
+    | h::t -> computeFromClause ((computeUnion h true) :: computedUnions) t
+    | [] -> computedUnions
