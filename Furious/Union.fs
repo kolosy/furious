@@ -52,7 +52,7 @@ module Union =
 //            let newTable = (tryFindTable (generateAlias tp unions) tp unions), []
             let prevTable = connect vertex newTable name (match keyName with | Some name -> name | None -> failwith "keyname is required")
             let newUnions = update ((fst prevTable).name) prevTable unions
-            printf "%A" newUnions |> ignore
+            //printf "%A" newUnions |> ignore
             buildUnionPath newUnions (Some newTable) t
         | None ->
             let newVertex = tryFindVertex (generateAlias tp unions) tp unions
