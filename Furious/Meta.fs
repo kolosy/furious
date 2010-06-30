@@ -10,6 +10,7 @@ module Meta =
     open Union
     open Expression
     open Interfaces
+    open RecordMapping
 
     type Datastore(?keyMapper:IRecordMapper) =
         let defaultMapper = 
@@ -91,3 +92,6 @@ module Meta =
 
             printfn "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
             Seq.empty<'b>
+
+        member x.Save record =
+            writeRecord record x.Mapper false
