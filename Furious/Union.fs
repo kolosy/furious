@@ -7,6 +7,7 @@ module Union =
     open Microsoft.FSharp.Quotations.DerivedPatterns
 
     open Interfaces
+    open TypeUtils
     open TableGraph
 
     let update key value map = 
@@ -23,7 +24,13 @@ module Union =
             match target with 
             | Some e -> getPropertyPath mapper e
             | None -> failwith "static properties are not supported"
-        remainder @ [mapper.MapRecord prop.PropertyType, mapper.MapField prop, mapper.GetPrimaryKeyName prop.PropertyType]
+        if isOption (prop.DeclaringType) then
+            remainder
+        elif isOption (prop.PropertyType) then
+            let nestedType = prop.PropertyType.GetGenericArguments().[0]
+            remainder @ [mapper.MapRecord nestedType, mapper.MapField prop, mapper.GetPrimaryKeyName nestedType]
+        else
+            remainder @ [mapper.MapRecord prop.PropertyType, mapper.MapField prop, mapper.GetPrimaryKeyName prop.PropertyType]
     | Var (e) ->  [ mapper.MapRecord e.Type, "", None ]
     | _ as e -> failwith <| sprintf "%A is an unsupported element" e
 

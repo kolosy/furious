@@ -94,4 +94,4 @@ module Meta =
             Seq.empty<'b>
 
         member x.Save record =
-            writeRecord record x.Mapper false
+            writeRecord x.Mapper false record

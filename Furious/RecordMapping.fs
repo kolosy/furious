@@ -8,18 +8,15 @@ module RecordMapping =
     open System.Data
 
     open Interfaces
+    open TypeUtils
 
-    let isSeq (tp: System.Type) = 
-        tp.IsGenericType &&
-        typeof<System.Collections.IEnumerable>.IsAssignableFrom(tp.GetGenericTypeDefinition())
-
-    let rec getSafeValue record (prop: PropertyInfo) = 
-        match prop.GetValue(record, null) with
+    let rec convertFrom (record: obj) (tp: System.Type) = 
+        match record with
         | :? string as str -> "'" + str + "'"
-        | :? Option<_> as opt -> 
-            match opt with
-            | Some v -> getSafeValue v prop
-            | None -> "null"
+        | _ when isOption (tp) ->
+            match record with
+            | AsOption tp opt -> convertFrom opt (opt.GetType())
+            | _ -> "null"
         | _ as v -> v.ToString()
 
     let rec convertTo targetType (v: obj) =
@@ -35,12 +32,13 @@ module RecordMapping =
         let constrValues = 
             FSharpType.GetRecordFields (recordType)
             |> Array.map (fun (elem: PropertyInfo) ->
-                        if isSeq (elem.PropertyType) then
-                            (readRecord elem.PropertyType (prefix + elem.Name + "_") mapper reader (prefix + mapper.GetPrimaryKeyName(recordType).Value)) :> obj
-                        elif FSharpType.IsRecord elem.PropertyType then
-                            ((readRecord elem.PropertyType (prefix + elem.Name + "_") mapper reader (prefix + mapper.GetPrimaryKeyName(recordType).Value)) |> List.head) :> obj
-                        else
-                            System.Convert.ChangeType(reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))), elem.PropertyType))
+                match elem.PropertyType with
+                | Sequence ->
+                    (readRecord elem.PropertyType (prefix + elem.Name + "_") mapper reader (prefix + mapper.GetPrimaryKeyName(recordType).Value)) :> obj
+                | Record -> 
+                    ((readRecord elem.PropertyType (prefix + elem.Name + "_") mapper reader (prefix + mapper.GetPrimaryKeyName(recordType).Value)) |> List.head) :> obj
+                | _ ->
+                    System.Convert.ChangeType(reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))), elem.PropertyType))
                 
         let newRecord = FSharpValue.MakeRecord (recordType, constrValues)
         let idValue = reader.GetValue(reader.GetOrdinal(parentIdField))
@@ -53,28 +51,35 @@ module RecordMapping =
         else
             [newRecord]
 
-    let rec writeRecord record (mapper:IRecordMapper) isInsert =
+    let rec writeRecord (mapper:IRecordMapper) isInsert record =
         let vector,scalar = 
             FSharpType.GetRecordFields (record.GetType())
             |> Array.toList
-            |> List.partition (fun (elem: PropertyInfo) ->
-                        isSeq (elem.PropertyType)
-                        || FSharpType.IsRecord elem.PropertyType)
+            |> List.partition (fun (elem: PropertyInfo) -> 
+                                match elem.PropertyType with 
+                                | Sequence | Record -> true 
+                                | Option t -> match t with | Sequence | Record -> true | _ -> false
+                                | _ -> false)
+
+        let rec generator currentRec (elem: PropertyInfo) = 
+            match elem.PropertyType with
+            | Sequence -> Seq.map (writeRecord mapper isInsert) (elem.GetValue(currentRec, null) :?> seq<_>) |> Seq.toList
+            | Record -> [writeRecord mapper isInsert (elem.GetValue(currentRec, null))]
+            | Option t -> 
+                let info, values = FSharpValue.GetUnionFields(elem.GetValue(currentRec, null), elem.PropertyType)
+                match info.Name with
+                | "Some" -> generator (elem.GetValue(currentRec, null)) (info.GetFields().[0])
+                | _ -> []
+            | _ -> failwith (sprintf "%s is an unexpected type" (elem.PropertyType.Name))
 
         let vectorSql = 
             vector 
-            |> List.collect
-                    (fun elem ->
-                            if isSeq (elem.PropertyType) then
-                                Seq.map (fun r -> writeRecord r mapper isInsert) (elem.GetValue(record, null) :?> seq<_>) 
-                                |> Seq.toList
-                            else
-                                [writeRecord (elem.GetValue(record, null)) mapper isInsert])
+            |> List.collect (generator record)
             |> String.concat "\r\n go \r\n"
 
         let names,values = 
             scalar
-            |> List.map (fun prop -> mapper.MapField prop, getSafeValue record prop)
+            |> List.map (fun prop -> mapper.MapField prop, convertFrom (prop.GetValue(record, null)) (prop.PropertyType))
             |> List.unzip
 
         sprintf "%s\r\n insert into %s (%s) values (%s)"
