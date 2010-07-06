@@ -56,10 +56,8 @@ module Union =
         match prevVertex with
         | Some vertex -> 
             let newTable = ({ name = tp; alias = generateAlias tp unions }), []
-//            let newTable = (tryFindTable (generateAlias tp unions) tp unions), []
             let prevTable = connect vertex newTable name (match keyName with | Some name -> name | None -> failwith "keyname is required")
             let newUnions = update ((fst prevTable).name) prevTable unions
-            //printf "%A" newUnions |> ignore
             buildUnionPath newUnions (Some newTable) t
         | None ->
             let newVertex = tryFindVertex (generateAlias tp unions) tp unions
@@ -93,9 +91,8 @@ module Union =
         let table, edges = graph
 
         edges 
-        |> ((if isBeginning then (table.name + " as " + table.alias)
-                else "") 
-        |> List.fold (fun s (t,u) -> sprintf "%s inner join %s as %s on %s.%s = %s.%s" s t.name t.alias table.alias u.sourceColumn t.alias u.targetColumn))
+        |> ((if isBeginning then (table.name + " as " + table.alias) else "") 
+            |> List.fold (fun s (t,u) -> sprintf "%s inner join %s as %s on %s.%s = %s.%s" s t.name t.alias table.alias u.sourceColumn t.alias u.targetColumn))
 
     let rec computeFromClause computedUnions = function
     | h::t -> computeFromClause ((computeUnion h true) :: computedUnions) t

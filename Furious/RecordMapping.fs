@@ -10,21 +10,34 @@ module RecordMapping =
     open Interfaces
     open TypeUtils
 
-    let rec convertFrom (record: obj) (tp: System.Type) = 
+    let getId (record: obj) (mapper: IRecordMapper) =
+        FSharpValue.GetRecordField(
+            record,
+            FSharpType.GetRecordFields(record.GetType())
+            |> Array.pick (fun elem -> if elem.Name = 
+                                            (match (mapper.GetPrimaryKeyName <| record.GetType()) with
+                                             | Some v -> v | None -> failwith (sprintf "%A doesn't have an id field" (record.GetType()))) 
+                                       then Some elem 
+                                       else None))
+
+    let rec convertFrom (record: obj) (tp: System.Type) (mapper: IRecordMapper) = 
         match record with
         | :? string as str -> "'" + str + "'"
         | _ when isOption (tp) ->
             match record with
-            | AsOption tp opt -> convertFrom opt (opt.GetType())
+            | AsOption tp opt -> convertFrom opt (opt.GetType()) mapper
             | _ -> "null"
+        | _ when FSharpType.IsRecord tp -> 
+            let fk = getId record mapper
+            convertFrom fk (fk.GetType()) mapper
         | _ as v -> v.ToString()
 
-    let rec convertTo targetType (v: obj) =
+    let rec convertTo targetType (v: obj) (mapper: IRecordMapper) =
         if typeof<System.Enum>.IsAssignableFrom(targetType) then
             System.Enum.ToObject(targetType, v :?> System.Int64)
         elif targetType.IsGenericType && targetType.GetGenericTypeDefinition() = typeof<Option<_>> then
             if v = (System.DBNull.Value :> obj) then None :> obj
-            else convertTo (targetType.GetGenericArguments().[0]) v
+            else convertTo (targetType.GetGenericArguments().[0]) v mapper
         else
             System.Convert.ChangeType(v,targetType)
 
@@ -52,14 +65,22 @@ module RecordMapping =
             [newRecord]
 
     let rec writeRecord (mapper:IRecordMapper) isInsert record =
-        let vector,scalar = 
+        let fields = 
             FSharpType.GetRecordFields (record.GetType())
             |> Array.toList
-            |> List.partition (fun (elem: PropertyInfo) -> 
-                                match elem.PropertyType with 
-                                | Sequence | Record -> true 
-                                | Option t -> match t with | Sequence | Record -> true | _ -> false
-                                | _ -> false)
+
+        let filter = fun (flag: bool) (elem: PropertyInfo) -> 
+                        match elem.PropertyType with 
+                        | Sequence -> flag
+                        | Record -> true 
+                        | Option t -> match t with 
+                                        | Sequence -> flag
+                                        | Record -> true 
+                                        | _ -> not flag
+                        | _ -> not flag
+
+        let vector = List.filter (filter true) fields
+        let scalar = List.filter (filter false) fields
 
         let rec generator currentRec (elem: PropertyInfo) = 
             match elem.PropertyType with
@@ -73,17 +94,21 @@ module RecordMapping =
             | _ -> failwith (sprintf "%s is an unexpected type" (elem.PropertyType.Name))
 
         let vectorSql = 
-            vector 
-            |> List.collect (generator record)
-            |> String.concat "\r\n go \r\n"
+            match 
+                (vector 
+                 |> List.collect (generator record)
+                 |> String.concat ";\r\n") with
+            | "" -> ""
+            | _ as vSql -> vSql + ";\r\n"
 
         let names,values = 
             scalar
-            |> List.map (fun prop -> mapper.MapField prop, convertFrom (prop.GetValue(record, null)) (prop.PropertyType))
+            |> List.map (fun prop -> mapper.MapField prop, convertFrom (prop.GetValue(record, null)) (prop.PropertyType) mapper)
             |> List.unzip
 
-        sprintf "%s\r\n insert into %s (%s) values (%s)"
+        sprintf "%s insert into %s (%s) values (%s)%s"
             vectorSql
             (mapper.MapRecord (record.GetType()))
             (String.concat ", " names)
             (String.concat ", " values)
+            (match vectorSql with | "" -> "" | _ -> ";")

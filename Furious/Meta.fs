@@ -12,11 +12,18 @@ module Meta =
     open Interfaces
     open RecordMapping
 
-    type Datastore(?keyMapper:IRecordMapper) =
+    type Datastore(conn: unit -> System.Data.Common.DbConnection, ?keyMapper:IRecordMapper) =
         let defaultMapper = 
             { new IRecordMapper with
                 member x.MapRecord tp = tp.Name
-                member x.MapField field = field.Name
+                member x.MapField field = 
+                    if FSharpType.IsRecord (match field with 
+                                            | :? System.Reflection.PropertyInfo as pi -> pi.PropertyType
+                                            | :? System.Reflection.FieldInfo as fi -> fi.FieldType 
+                                            | _ -> failwith (sprintf "%A is an unsupported field descriptor" field) ) then
+                        field.Name + "Id"
+                    else
+                        field.Name
                 member x.GetPrimaryKeyName tp = Some (tp.Name + "Id") }
 
         let printExpr mode expr = printf "%s - %A" mode expr
@@ -58,6 +65,12 @@ module Meta =
             |> List.fold (fun s e -> (if System.String.IsNullOrEmpty(s) then ", " else "") + e) ""
 
         member private x.Mapper with get() = match keyMapper with | Some m -> m | None -> defaultMapper
+        
+        member private x.RunSql sql =
+            let command = conn().CreateCommand() 
+            command.CommandText <- sql
+            command.ExecuteReader()
+
         member x.Yield (expr: Expr<(seq<'a>->seq<'b>)>) = 
             let newUnions,e,collation = traverse Map.empty x.Mapper None expr
             let select = 
@@ -72,8 +85,15 @@ module Meta =
                         |> computeFromClause []
                         |> List.fold (+) "")
 
-            printfn "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
-            Seq.empty<'b>
+            let reader = 
+                sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
+                |> x.RunSql
+
+            seq {
+                while reader.HasRows do
+                    for r in (readRecord typeof<'b> "" (x.Mapper) reader "") -> r :?> 'b
+            }
+
         member x.Compute (expr: Expr<(seq<'a>->'b)>) = 
             let newUnions,e,collation = traverse Map.empty x.Mapper None expr
             let select = 
@@ -94,4 +114,7 @@ module Meta =
             Seq.empty<'b>
 
         member x.Save record =
-            writeRecord x.Mapper false record
+            let cmd = conn().CreateCommand()
+            cmd.CommandText <- writeRecord x.Mapper false record
+            cmd.CommandType <- System.Data.CommandType.Text
+            cmd.ExecuteNonQuery()
