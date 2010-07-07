@@ -6,15 +6,10 @@ module Expression =
     open Microsoft.FSharp.Quotations.Patterns
     open Microsoft.FSharp.Quotations.DerivedPatterns
 
-    open Union
+    open Join
     open Interfaces
 
-    let printExpr mode expr = printf "%s - %A" mode expr
-
-    // start with person.homeAddress.zip with homeAddress being of type address
-    // get to person.homeAddress[Id] = address.addressId
-
-    let rec traverseExpression unions mapper expr = 
+    let rec traverseExpression (joins: compoundJoin) mapper expr = 
         let left, right, opString,leaf = 
             match expr with
             | IfThenElse (i,t,e) ->
@@ -35,10 +30,10 @@ module Expression =
             | _ as e -> failwith <| sprintf "%A is an unexpected element" e
 
         if not leaf then
-            let newUnions1, newLeft = traverseExpression unions mapper left
-            let newUnions2, newRight = traverseExpression newUnions1 mapper right
-            newUnions2, sprintf "(%s) %s (%s)" newLeft opString newRight
+            let newLeft = traverseExpression joins mapper left
+            let newRight = traverseExpression joins mapper right
+            sprintf "(%s) %s (%s)" newLeft opString newRight
         else
-            let newUnions1, _, alias1 = getValue unions mapper left
-            let newUnions2, _, alias2 = getValue newUnions1 mapper right
-            newUnions2, alias1 + opString + alias2
+            let alias1 = getValue joins mapper left
+            let alias2 = getValue joins mapper right
+            alias1 + opString + alias2

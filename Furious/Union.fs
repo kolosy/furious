@@ -8,6 +8,7 @@ module Union =
 
     open Interfaces
     open TypeUtils
+    open ValueUtils
     open TableGraph
 
     let update key value map = 
@@ -84,7 +85,7 @@ module Union =
             newUnions, (match List.head path with | (tp,_,_) -> tp), alias + "." + (match last path with | _,v,_ -> v)
 
     let rec getValue unions mapper = function
-    | Value (v, tp) -> unions, "", v.ToString()
+    | Value (v, tp) -> unions, "", convertFrom v tp mapper
     | _ as expr -> computeExpression expr unions mapper
 
     let computeUnion (graph: vertex) isBeginning =

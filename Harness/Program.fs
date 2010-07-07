@@ -34,8 +34,8 @@ let address4 = { addressId = System.Guid.NewGuid().ToString(); street1 = "987 so
 //let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [address3; address4] }
 let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; }
 
-printf "\r\n Case 4"
-db.Save newPerson |> ignore
+//printf "\r\n Case 4"
+//db.Save newPerson |> ignore
 
 printfn "\r\nCase 1" |> ignore
 let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>

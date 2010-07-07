@@ -7,7 +7,7 @@ module Meta =
     open Microsoft.FSharp.Quotations.DerivedPatterns
     open Microsoft.FSharp.Reflection
 
-    open Union
+    open Join
     open Expression
     open Interfaces
     open RecordMapping
@@ -30,39 +30,38 @@ module Meta =
 
         let notEmpty optExpr expr = match optExpr with | Some e -> e | None -> expr
 
-        let rec traverse unions mapper altExpr = function
+        let rec traverse joins mapper altExpr = function
         | Let (var, valExpr, nextExpr) ->
             match nextExpr with
             | Lambda (v, expr) -> 
                 match expr with 
-                | Call _ -> traverse unions mapper (Some valExpr) expr
-                | _ -> unions, "", None
-            | _ -> unions, "", None
+                | Call _ -> traverse joins mapper (Some valExpr) expr
+                | _ -> "", None
+            | _ -> "", None
         | SpecificCall <@ (<|) @> (ex,types,f::s::t) -> 
-            let _,_,c =
+            let _,c =
                 match notEmpty altExpr f with
                 | Lambda (v, expr) -> 
-                      traverse unions mapper altExpr expr
-                | _ -> unions, "", None
-            let u,e,_ = traverse unions mapper altExpr s
-            u,e,c
+                      traverse joins mapper altExpr expr
+                | _ -> "", None
+            let e,_ = traverse joins mapper altExpr s
+            e,c
         | SpecificCall <@ Seq.filter @> (ex,types,h::t) -> 
             match notEmpty altExpr h with
             | Lambda (v, expr) -> 
-                let u,e = traverseExpression unions mapper expr
-                u,e,None
-            | _ -> unions, "", None
-        | SpecificCall <@ Seq.length @> (ex,types,h::t) ->  unions, "", Some "length"
-        | ShapeVar v -> unions, "", None
-        | ShapeLambda (v,expr) -> traverse unions mapper None expr
+                let e = traverseExpression joins mapper expr
+                e,None
+            | _ -> "", None
+        | SpecificCall <@ Seq.length @> (ex,types,h::t) ->  "", Some "length"
+        | ShapeVar v -> "", None
+        | ShapeLambda (v,expr) -> traverse joins mapper None expr
         | ShapeCombination (o, exprs) -> 
-            List.fold (fun (u,e,c) expr -> traverse unions mapper None expr) (unions, "", None) exprs
+            List.fold (fun (e,c) expr -> traverse joins mapper None expr) ("", None) exprs
 
         let computeFieldNames recType alias (mapper: IRecordMapper) =
-            FSharpType.GetRecordFields (recType, System.Reflection.BindingFlags.Public ||| System.Reflection.BindingFlags.Instance)
-            |> Array.toList
-            |> List.map (fun e -> sprintf "%s.%s" alias (mapper.MapField e))
-            |> List.fold (fun s e -> (if System.String.IsNullOrEmpty(s) then ", " else "") + e) ""
+            FSharpType.GetRecordFields (recType)
+            |> Array.map (fun e -> sprintf "%s.%s" alias (mapper.MapField e))
+            |> String.concat ", "
 
         member private x.Mapper with get() = match keyMapper with | Some m -> m | None -> defaultMapper
         
@@ -72,7 +71,8 @@ module Meta =
             command.ExecuteReader()
 
         member x.Yield (expr: Expr<(seq<'a>->seq<'b>)>) = 
-            let newUnions,e,collation = traverse Map.empty x.Mapper None expr
+            let joins = computeJoins typeof<'b> x.Mapper ""
+            let e,collation = traverse joins x.Mapper None expr
             let select = 
                 match collation with 
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
@@ -83,7 +83,7 @@ module Meta =
                         |> List.unzip 
                         |> snd 
                         |> computeFromClause []
-                        |> List.fold (+) "")
+                        |> String.concat "")
 
             let reader = 
                 sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
