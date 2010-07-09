@@ -29,17 +29,18 @@ module Join =
     | Val (j, jl) -> j, jl
 
     let rec computeJoins (tp: System.Type) (mapper: IRecordMapper) prefix =
+        let computeSingleJoin (e: PropertyInfo) =
+            Val ( { table = mapper.MapRecord e.PropertyType
+                    alias = prefix + "_" + e.Name
+                    fkName = mapper.MapField e
+                    pkName = match mapper.GetPrimaryKeyName e.PropertyType with | Some v -> v | None -> failwith (sprintf "Mapper %A needs to support primary key inferrence" mapper)
+                    definingMember = e },
+                computeJoins (e.PropertyType) mapper (prefix + "_" + e.Name))
+
         FSharpType.GetRecordFields tp
         |> List.ofArray
         |> List.filter (fun e -> FSharpType.IsRecord e.PropertyType)
-        |> List.map (fun e ->
-                        Val (
-                            { table = mapper.MapRecord e.PropertyType
-                              alias = prefix + "_" + e.Name
-                              fkName = mapper.MapField e
-                              pkName = match mapper.GetPrimaryKeyName e.PropertyType with | Some v -> v | None -> failwith (sprintf "Mapper %A needs to support primary key inferrence" mapper)
-                              definingMember = e },
-                            computeJoins (e.PropertyType) mapper (prefix + "_" + e.Name)))
+        |> List.map computeSingleJoin
 
     let rec private computeFromClauseInternal parentTableName parentTableAlias (mapper: IRecordMapper) isFirst (v: compoundJoin) = 
         let j, jl = unroll v

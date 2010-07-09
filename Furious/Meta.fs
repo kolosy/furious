@@ -11,20 +11,12 @@ module Meta =
     open Expression
     open Interfaces
     open RecordMapping
+    open TypeUtils
+    open ValueUtils
+    open Mapper
 
     type Datastore(conn: unit -> System.Data.Common.DbConnection, ?keyMapper:IRecordMapper) =
-        let defaultMapper = 
-            { new IRecordMapper with
-                member x.MapRecord tp = tp.Name
-                member x.MapField field = 
-                    if FSharpType.IsRecord (match field with 
-                                            | :? System.Reflection.PropertyInfo as pi -> pi.PropertyType
-                                            | :? System.Reflection.FieldInfo as fi -> fi.FieldType 
-                                            | _ -> failwith (sprintf "%A is an unsupported field descriptor" field) ) then
-                        field.Name + "Id"
-                    else
-                        field.Name
-                member x.GetPrimaryKeyName tp = Some (tp.Name + "Id") }
+        let defaultMapper = new DefaultRecordMapper() :> IRecordMapper
 
         let prefix = "t1"
 

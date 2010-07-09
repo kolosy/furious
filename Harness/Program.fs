@@ -38,7 +38,7 @@ let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex
 //db.Save newPerson |> ignore
 
 printfn "\r\n\r\nCase 1\r\n" |> ignore
-let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
+let (neighbor: person seq) = db.Yield <@ Seq.filter (fun p -> p.homeAddress.zip = "60614") @>
 printfn "<\r\n" |> ignore
 Seq.iter (printfn "%A") neighbor
 printfn "\r\n>" |> ignore

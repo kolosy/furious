@@ -43,10 +43,9 @@
     <Compile Include="Interfaces.fs" />
     <Compile Include="TypeUtils.fs" />
     <Compile Include="ValueUtils.fs" />
+    <Compile Include="Mapper.fs" />
     <Compile Include="RecordMapping.fs" />
-    <Compile Include="TableGraph.fs" />
     <Compile Include="Join.fs" />
-    <Compile Include="Union.fs" />
     <Compile Include="Expression.fs" />
     <Compile Include="Meta.fs" />
   </ItemGroup>

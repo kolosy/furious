@@ -37,3 +37,4 @@ module ValueUtils =
         else
             System.Convert.ChangeType(v,targetType)
 
+    let ucFirst (str: string) = str.[0].ToString().ToUpper() + str.[1..]

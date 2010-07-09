@@ -5,7 +5,7 @@ module Interfaces =
     /// of both entities, and entity attributes
     type IRecordMapper = 
         /// Retrieves the external entity name of the given record type
-        abstract member MapRecord : System.Type -> System.String
+        abstract member MapRecord : tp:System.Type * ?field:System.Reflection.PropertyInfo -> System.String
         /// Retrieves the external attribute name of the given attribute
         abstract member MapField : System.Reflection.MemberInfo -> System.String
         /// Retrieves the primary key for the given entity. Returns None if the underlying
