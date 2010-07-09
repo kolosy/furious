@@ -34,18 +34,33 @@ let address4 = { addressId = System.Guid.NewGuid().ToString(); street1 = "987 so
 //let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [address3; address4] }
 let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; }
 
-//printf "\r\n Case 4"
+//printf "\r\n Case "
 //db.Save newPerson |> ignore
 
-printfn "\r\nCase 1" |> ignore
+printfn "\r\n\r\nCase 1\r\n" |> ignore
 let (neighbor: person seq) = db.Yield <@ fun people-> Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
+printfn "<\r\n" |> ignore
+Seq.iter (printfn "%A") neighbor
+printfn "\r\n>" |> ignore
 
-printfn "\r\nCase 2" |> ignore
+printfn "\r\n\r\nCase 2\r\n" |> ignore
 let (neighbors: int seq) = db.Compute <@ fun people -> Seq.length <| Seq.filter (fun p -> p.homeAddress.zip = "60614") people @>
+printfn "<\r\n" |> ignore
+Seq.iter (printfn "%A") neighbors
+printfn "\r\n>" |> ignore
 
-printfn "\r\nCase 3" |> ignore
+printfn "\r\n\r\nCase 3\r\n" |> ignore
 let (neighbor2: person seq) = db.Yield <@ Seq.filter (fun p -> (p.homeAddress.zip = "60614") && (p.workAddress.zip = "60069") && ((p.firstname = "alex") || (p.lastname = "pedenko"))) @>
+printfn "<\r\n" |> ignore
+Seq.iter (printfn "%A") neighbor2
+printfn "\r\n>" |> ignore
     
+printfn "\r\n\r\nCase 4\r\n" |> ignore
+let (neighbors2: int seq) = db.Compute <@ fun people -> Seq.length <| Seq.filter (fun p -> (p.homeAddress.zip = "60614") && (p.workAddress.zip = "60069") && ((p.firstname = "alex") || (p.lastname = "pedenko"))) people @>
+printfn "<\r\n" |> ignore
+Seq.iter (printfn "%A") neighbors2
+printfn "\r\n>" |> ignore
+
 printf "Done. Press any key to continue." |> ignore
 System.Console.ReadLine() |> ignore
 

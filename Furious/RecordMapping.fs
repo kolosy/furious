@@ -11,35 +11,54 @@ module RecordMapping =
     open TypeUtils
     open ValueUtils
 
-//                    computeFieldNames typeof<'b> (fst newUnions.[typeof<'b>.Name]).alias x.Mapper
-
     let computeFieldNames recType alias (mapper: IRecordMapper) =
         FSharpType.GetRecordFields (recType)
         |> Array.map (fun e -> sprintf "%s.%s" alias (mapper.MapField e))
         |> String.concat ", "
 
-    let rec readRecord recordType prefix (mapper: IRecordMapper) (reader: System.Data.Common.DbDataReader) (parentIdField: string) =
-        let constrValues = 
-            FSharpType.GetRecordFields (recordType)
-            |> Array.map (fun (elem: PropertyInfo) ->
-                match elem.PropertyType with
-                | Sequence ->
-                    (readRecord elem.PropertyType (prefix + elem.Name + "_") mapper reader (prefix + mapper.GetPrimaryKeyName(recordType).Value)) :> obj
-                | Record -> 
-                    ((readRecord elem.PropertyType (prefix + elem.Name + "_") mapper reader (prefix + mapper.GetPrimaryKeyName(recordType).Value)) |> List.head) :> obj
-                | _ ->
-                    System.Convert.ChangeType(reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))), elem.PropertyType))
+    let rec readRecord recordType prefix (mapper: IRecordMapper) (reader: System.Data.Common.DbDataReader) parentIdField =
+        if FSharpType.IsRecord recordType then
+            let constrValues = 
+                FSharpType.GetRecordFields (recordType)
+                |> Array.map (fun (elem: PropertyInfo) ->
+                    match elem.PropertyType with
+                    | Sequence ->
+                        (readRecord elem.PropertyType (prefix + "_" + elem.Name) mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value))) :> obj
+                    | Record -> 
+                        ((readRecord elem.PropertyType (prefix + "_" + elem.Name) mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value))) |> List.head) :> obj
+                    | Option (tp) -> 
+                        match tp with
+                        | Record ->
+                            if reader.GetValue(reader.GetOrdinal(prefix + "_" + elem.Name + mapper.GetPrimaryKeyName(tp).Value)) = (box System.DBNull.Value) then
+                                createNone tp
+                            else
+                                List.head (readRecord tp prefix mapper reader parentIdField)
+                                |> createSome tp
+                        | _ -> 
+                            if reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))) = (box System.DBNull.Value) then
+                                createNone tp
+                            else
+                                List.head (readRecord tp prefix mapper reader parentIdField)
+                                |> createSome tp
+                    | _ ->
+                        System.Convert.ChangeType(reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))), elem.PropertyType))
                 
-        let newRecord = FSharpValue.MakeRecord (recordType, constrValues)
-        let idValue = reader.GetValue(reader.GetOrdinal(parentIdField))
-        if reader.Read() then
-            let nextIdValue = reader.GetValue(reader.GetOrdinal(parentIdField))
-            if nextIdValue = idValue then
-                newRecord :: readRecord recordType prefix mapper reader parentIdField
-            else
+            let newRecord = FSharpValue.MakeRecord (recordType, constrValues)
+            match parentIdField with
+            | Some v -> 
+                let idValue = reader.GetValue(reader.GetOrdinal(v))
+                if reader.Read() then
+                    let nextIdValue = reader.GetValue(reader.GetOrdinal(v))
+                    if nextIdValue = idValue then
+                        newRecord :: readRecord recordType prefix mapper reader parentIdField
+                    else
+                        [newRecord]
+                else
+                    [newRecord]
+            | None -> 
                 [newRecord]
         else
-            [newRecord]
+            [System.Convert.ChangeType(reader.GetValue(0), recordType)]
 
     let rec writeRecord (mapper:IRecordMapper) isInsert record =
         let fields = 

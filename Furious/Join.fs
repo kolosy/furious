@@ -8,6 +8,8 @@ module Join =
     open Microsoft.FSharp.Quotations.Patterns
     open Microsoft.FSharp.Quotations.DerivedPatterns
 
+    open System.Reflection
+
     open Interfaces
     open TypeUtils
     open ValueUtils
@@ -17,7 +19,7 @@ module Join =
         alias: string
         fkName: string
         pkName: string
-        definingType: System.Type
+        definingMember: PropertyInfo
     }
 
     type compoundJoin =
@@ -33,13 +35,13 @@ module Join =
         |> List.map (fun e ->
                         Val (
                             { table = mapper.MapRecord e.PropertyType
-                              alias = prefix + e.Name
+                              alias = prefix + "_" + e.Name
                               fkName = mapper.MapField e
-                              pkName = match mapper.GetPrimaryKeyName tp with | Some v -> v | None -> failwith (sprintf "Mapper %A needs to support primary key inferrence" mapper)
-                              definingType = e.PropertyType },
-                            computeJoins (e.PropertyType) mapper (prefix + e.Name + "_")))
+                              pkName = match mapper.GetPrimaryKeyName e.PropertyType with | Some v -> v | None -> failwith (sprintf "Mapper %A needs to support primary key inferrence" mapper)
+                              definingMember = e },
+                            computeJoins (e.PropertyType) mapper (prefix + "_" + e.Name)))
 
-    let rec computeFromClause parentTableName parentTableAlias (mapper: IRecordMapper) isFirst (v: compoundJoin) = 
+    let rec private computeFromClauseInternal parentTableName parentTableAlias (mapper: IRecordMapper) isFirst (v: compoundJoin) = 
         let j, jl = unroll v
         sprintf "%s inner join %s as %s on %s.%s = %s.%s %s"
             (if isFirst then sprintf "%s as %s" parentTableName parentTableAlias else "")
@@ -49,28 +51,48 @@ module Join =
             j.fkName
             j.alias
             j.pkName
-            (List.map (computeFromClause j.table j.alias mapper false) jl
+            (List.map (computeFromClauseInternal j.table j.alias mapper false) jl
              |> String.concat "")
 
-    let rec computeSelectClause (tp: System.Type) prefix (joins: compoundJoin) (mapper: IRecordMapper) =
-        let j, jl = unroll joins
+    let computeFromClause (tp: System.Type) prefix (mapper: IRecordMapper) (v: compoundJoin list) = 
+        let tName = mapper.MapRecord tp
+        List.mapi (fun idx elem -> computeFromClauseInternal tName prefix mapper (idx = 0) elem) v
+        |> String.concat ""
 
-        (+)
+    let rec computeSelectClause (tp: System.Type) prefix (joins: compoundJoin list) (mapper: IRecordMapper) =
+        (@)
             (FSharpType.GetRecordFields tp
              |> List.ofArray
-             |> List.map (fun e -> prefix + "." + (mapper.MapField e))
-             |> String.concat ", ")
+             |> List.map (fun e -> 
+                            let name = mapper.MapField e
+                            sprintf "%s.%s as %s%s" prefix name prefix name))
             (List.map (fun e -> 
-                        let nestedJoin, _ = unroll e
-                        computeSelectClause nestedJoin.definingType nestedJoin.alias e mapper) jl
-             |> String.concat ", ")
+                        let nestedJoin, joinList = unroll e
+                        computeSelectClause nestedJoin.definingMember.PropertyType nestedJoin.alias joinList mapper) joins)
+        |> String.concat ", "
 
-    let rec getValue (joins: compoundJoin list) (mapper: IRecordMapper) = function
-    | PropertyGet (target, prop, idx) -> 
-        match prop.PropertyType with
-        | Record -> getValue (List.find (fun j -> (unroll j |> fst).fkName = mapper.MapField prop) joins) mapper target.Value
-        | Option inner -> getValue joins mapper target.Value
-        | _ -> sprintf "%s.%s" j.alias j.fkName
-    | Value (v, tp) -> convertFrom v tp mapper
-    | _ as e -> failwith <| sprintf "%A is an unexpected element" e
+    let rec invertPropertyPath = function
+    | PropertyGet (e,_,_) as prop -> (invertPropertyPath e.Value) @ [ prop ]
+    | Var (_) as var -> [ var ]
+    | Value (_) as v -> [ v ]
+    | _ as e -> failwith <| sprintf "%A is an unknown property path component" e
+
+    let rec getValue prefix (joins: compoundJoin list) (mapper: IRecordMapper) = function
+    | h::t ->
+        match h with
+        | PropertyGet (target, prop, idx) -> 
+            match prop.PropertyType with
+            | Record -> 
+                let j, js = List.pick (fun elem ->
+                                        let j, js = unroll elem
+                                        if j.definingMember = prop then Some (j, js)
+                                        else None) joins
+
+                getValue j.alias js mapper t
+            | Option inner -> getValue prefix joins mapper t
+            | _ -> sprintf "%s.%s" prefix (mapper.MapField prop)
+        | Var (e) -> getValue prefix joins mapper t
+        | Value (v, tp) -> convertFrom v tp mapper
+        | _ as e -> failwith <| sprintf "%A is an unexpected element" e
+    | [] -> ""
 

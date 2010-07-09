@@ -16,3 +16,12 @@ module TypeUtils =
         | "Some" -> Some (values.[0])
         | "None" -> None
         | _ -> failwith (sprintf "unkown case %s" info.Name)
+
+    let createSome (tp: System.Type) o =
+        let optType = typeof<Option<_>>.GetGenericTypeDefinition().MakeGenericType([|tp|])
+        FSharpValue.MakeUnion(FSharpType.GetUnionCases(optType) |> Array.find (fun elem -> elem.Name = "Some"), [| o |])
+
+    
+    let createNone (tp: System.Type) =
+        let optType = typeof<Option<_>>.GetGenericTypeDefinition().MakeGenericType([|tp|])
+        FSharpValue.MakeUnion(FSharpType.GetUnionCases(optType) |> Array.find (fun elem -> elem.Name = "None"), Array.empty)

@@ -26,42 +26,7 @@ module Meta =
                         field.Name
                 member x.GetPrimaryKeyName tp = Some (tp.Name + "Id") }
 
-        let printExpr mode expr = printf "%s - %A" mode expr
-
-        let notEmpty optExpr expr = match optExpr with | Some e -> e | None -> expr
-
-        let rec traverse joins mapper altExpr = function
-        | Let (var, valExpr, nextExpr) ->
-            match nextExpr with
-            | Lambda (v, expr) -> 
-                match expr with 
-                | Call _ -> traverse joins mapper (Some valExpr) expr
-                | _ -> "", None
-            | _ -> "", None
-        | SpecificCall <@ (<|) @> (ex,types,f::s::t) -> 
-            let _,c =
-                match notEmpty altExpr f with
-                | Lambda (v, expr) -> 
-                      traverse joins mapper altExpr expr
-                | _ -> "", None
-            let e,_ = traverse joins mapper altExpr s
-            e,c
-        | SpecificCall <@ Seq.filter @> (ex,types,h::t) -> 
-            match notEmpty altExpr h with
-            | Lambda (v, expr) -> 
-                let e = traverseExpression joins mapper expr
-                e,None
-            | _ -> "", None
-        | SpecificCall <@ Seq.length @> (ex,types,h::t) ->  "", Some "length"
-        | ShapeVar v -> "", None
-        | ShapeLambda (v,expr) -> traverse joins mapper None expr
-        | ShapeCombination (o, exprs) -> 
-            List.fold (fun (e,c) expr -> traverse joins mapper None expr) ("", None) exprs
-
-        let computeFieldNames recType alias (mapper: IRecordMapper) =
-            FSharpType.GetRecordFields (recType)
-            |> Array.map (fun e -> sprintf "%s.%s" alias (mapper.MapField e))
-            |> String.concat ", "
+        let prefix = "t1"
 
         member private x.Mapper with get() = match keyMapper with | Some m -> m | None -> defaultMapper
         
@@ -71,47 +36,45 @@ module Meta =
             command.ExecuteReader()
 
         member x.Yield (expr: Expr<(seq<'a>->seq<'b>)>) = 
-            let joins = computeJoins typeof<'b> x.Mapper ""
-            let e,collation = traverse joins x.Mapper None expr
+            let joins = computeJoins typeof<'b> x.Mapper prefix
+            let e,collation = traverse prefix joins x.Mapper None expr
             let select = 
                 match collation with 
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
                 | None ->
-                    computeFieldNames typeof<'b> (fst newUnions.[typeof<'b>.Name]).alias x.Mapper
-            let from = (
-                        Map.toList newUnions 
-                        |> List.unzip 
-                        |> snd 
-                        |> computeFromClause []
-                        |> String.concat "")
+                    computeSelectClause typeof<'a> prefix joins x.Mapper
+            
+            let from = computeFromClause typeof<'a> prefix x.Mapper joins
 
-            let reader = 
-                sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
-                |> x.RunSql
-
+            let sql = sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
+            printfn "\r\n running sql \r\n%s" sql
             seq {
-                while reader.HasRows do
-                    for r in (readRecord typeof<'b> "" (x.Mapper) reader "") -> r :?> 'b
+                use reader = x.RunSql sql
+
+                while reader.Read() do
+                    for r in (readRecord typeof<'a> prefix (x.Mapper) reader None) -> r :?> 'b
             }
 
         member x.Compute (expr: Expr<(seq<'a>->'b)>) = 
-            let newUnions,e,collation = traverse Map.empty x.Mapper None expr
+            let joins = computeJoins typeof<'a> x.Mapper prefix
+            let e,collation = traverse prefix joins x.Mapper None expr
             let select = 
                 match collation with 
                 | Some "length" ->
-                    sprintf "select: count(*)"
+                    sprintf "count(*)"
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
                 | None ->
-                    sprintf "select: %A" (computeFieldNames typeof<'b> (fst newUnions.[typeof<'b>.Name]).alias x.Mapper)
-            let from = (
-                        Map.toList newUnions 
-                        |> List.unzip 
-                        |> snd 
-                        |> computeFromClause []
-                        |> List.fold (+) "")
+                    computeSelectClause typeof<'a> prefix joins x.Mapper
 
-            printfn "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
-            Seq.empty<'b>
+            let from = computeFromClause typeof<'a> prefix x.Mapper joins
+            let sql = sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)
+            printfn "\r\n running sql \r\n%s" sql
+            seq {
+                use reader = x.RunSql sql
+
+                while reader.Read() do
+                    for r in (readRecord typeof<'b> prefix (x.Mapper) reader None) -> r :?> 'b
+            }
 
         member x.Save record =
             let cmd = conn().CreateCommand()
