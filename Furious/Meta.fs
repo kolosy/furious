@@ -34,7 +34,7 @@ module Meta =
                 match collation with 
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
                 | None ->
-                    computeSelectClause typeof<'a> prefix joins x.Mapper
+                    computeSelectClause typeof<'a> prefix joins x.Mapper true
             
             let from = computeFromClause typeof<'a> prefix x.Mapper joins
 
@@ -43,6 +43,7 @@ module Meta =
             seq {
                 use reader = x.RunSql sql
 
+                // todo: this might advance twice
                 while reader.Read() do
                     for r in (readRecord typeof<'a> prefix (x.Mapper) reader None) -> r :?> 'b
             }
@@ -56,7 +57,7 @@ module Meta =
                     sprintf "count(*)"
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
                 | None ->
-                    computeSelectClause typeof<'a> prefix joins x.Mapper
+                    computeSelectClause typeof<'a> prefix joins x.Mapper true
 
             let from = computeFromClause typeof<'a> prefix x.Mapper joins
             let sql = sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then "" else "where " + e)

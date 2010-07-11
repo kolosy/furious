@@ -20,7 +20,6 @@ module Mapper =
                                         | :? System.Reflection.PropertyInfo as pi -> pi.PropertyType
                                         | :? System.Reflection.FieldInfo as fi -> fi.FieldType 
                                         | _ -> failwith (sprintf "%A is an unsupported field descriptor" field) ) with
-                | Record -> field.Name + "Id"
-                | Sequence -> field.DeclaringType.Name + (ucFirst field.Name)
+                | Record | Sequence -> field.Name + "Id"
                 | _ -> field.Name
             member x.GetPrimaryKeyName tp = Some (tp.Name + "Id") 

@@ -8,7 +8,7 @@ type person = {
     lastname: string
     homeAddress: address
     workAddress: address
-    //altAddresses: address seq
+    altAddresses: address seq
 }
 and address = {
     addressId: string
@@ -32,7 +32,7 @@ let address3 = { addressId = System.Guid.NewGuid().ToString(); street1 = "2344 s
 let address4 = { addressId = System.Guid.NewGuid().ToString(); street1 = "987 something"; zip = "60614" }
 
 //let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [address3; address4] }
-let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; }
+let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [ address3; address4 ] }
 
 //printf "\r\n Case "
 //db.Save newPerson |> ignore

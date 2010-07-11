@@ -20,8 +20,13 @@ module TypeUtils =
     let createSome (tp: System.Type) o =
         let optType = typeof<Option<_>>.GetGenericTypeDefinition().MakeGenericType([|tp|])
         FSharpValue.MakeUnion(FSharpType.GetUnionCases(optType) |> Array.find (fun elem -> elem.Name = "Some"), [| o |])
-
     
     let createNone (tp: System.Type) =
         let optType = typeof<Option<_>>.GetGenericTypeDefinition().MakeGenericType([|tp|])
         FSharpValue.MakeUnion(FSharpType.GetUnionCases(optType) |> Array.find (fun elem -> elem.Name = "None"), Array.empty)
+
+    let tryGetNestedType = function
+    | Record as tp -> Some tp
+    | Option (t) -> Some t
+    | Sequence as tp -> Some(tp.GetGenericArguments().[0])
+    | _ -> None
