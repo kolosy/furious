@@ -23,7 +23,7 @@ module RecordMapping =
                 |> Array.map (fun (elem: PropertyInfo) ->
                     match elem.PropertyType with
                     | Sequence ->
-                        (readRecord elem.PropertyType (prefix + "_" + elem.Name) mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value))) :> obj
+                        (readRecord (elem.PropertyType.GetGenericArguments().[0]) (prefix + "_" + elem.Name + "Seq") mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value))) :> obj
                     | Record -> 
                         ((readRecord elem.PropertyType (prefix + "_" + elem.Name) mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value))) |> List.head) :> obj
                     | Option (tp) -> 
@@ -78,9 +78,21 @@ module RecordMapping =
         let vector = List.filter (filter true) fields
         let scalar = List.filter (filter false) fields
 
+        // todo: this too encodes a specific 1:many structure. revisit.
+        let writeSeqElem (prop: PropertyInfo) (elem: obj) = 
+            let id1, id2 = getId elem mapper, getId record mapper
+            [ sprintf "insert into %s (%s, %s) values (%s, %s)" 
+                (mapper.MapRecord (prop.PropertyType, prop)) 
+                (mapper.GetPrimaryKeyName (elem.GetType())).Value
+                (mapper.GetPrimaryKeyName (prop.DeclaringType)).Value
+                (convertFrom id1 (id1.GetType()) mapper) 
+                (convertFrom id2 (id2.GetType()) mapper);
+              writeRecord mapper isInsert elem ]
+
         let rec generator currentRec (elem: PropertyInfo) = 
             match elem.PropertyType with
-            | Sequence -> Seq.map (writeRecord mapper isInsert) (elem.GetValue(currentRec, null) :?> seq<_>) |> Seq.toList
+            | Sequence -> 
+                List.collect (writeSeqElem elem) ((elem.GetValue(currentRec, null) :?> seq<_>) |> Seq.toList)
             | Record -> [writeRecord mapper isInsert (elem.GetValue(currentRec, null))]
             | Option t -> 
                 let info, values = FSharpValue.GetUnionFields(elem.GetValue(currentRec, null), elem.PropertyType)

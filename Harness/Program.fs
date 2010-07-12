@@ -34,7 +34,7 @@ let address4 = { addressId = System.Guid.NewGuid().ToString(); street1 = "987 so
 //let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [address3; address4] }
 let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [ address3; address4 ] }
 
-//printf "\r\n Case "
+//printf "\r\n Case 0"
 //db.Save newPerson |> ignore
 
 printfn "\r\n\r\nCase 1\r\n" |> ignore
