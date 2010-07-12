@@ -45,7 +45,7 @@ module Meta =
 
                 // todo: this might advance twice
                 while reader.Read() do
-                    for r in (readRecord typeof<'a> prefix (x.Mapper) reader None) -> r :?> 'b
+                    for r in (readRecord typeof<'a> prefix (x.Mapper) reader None false) -> r :?> 'b
             }
 
         member x.Compute (expr: Expr<(seq<'a>->'b)>) = 
@@ -66,7 +66,7 @@ module Meta =
                 use reader = x.RunSql sql
 
                 while reader.Read() do
-                    for r in (readRecord typeof<'b> prefix (x.Mapper) reader None) -> r :?> 'b
+                    for r in (readRecord typeof<'b> prefix (x.Mapper) reader None false) -> r :?> 'b
             }
 
         member x.Save record =

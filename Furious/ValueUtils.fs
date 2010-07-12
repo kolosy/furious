@@ -38,3 +38,13 @@ module ValueUtils =
             System.Convert.ChangeType(v,targetType)
 
     let ucFirst (str: string) = str.[0].ToString().ToUpper() + str.[1..]
+
+    let asTypedList (tp: System.Type) (lst: obj list) = 
+        let lstTp = typeof<Microsoft.FSharp.Collections.list<_>>.GetGenericTypeDefinition().MakeGenericType([| tp |])
+        let lstConstructor = lstTp.GetConstructor([| tp; lstTp |])
+
+        let rec computeList = function
+        | h::t -> lstConstructor.Invoke([|System.Convert.ChangeType(h, tp); computeList t|])
+        | [] -> lstTp.GetProperty("Empty").GetValue(null, null)
+
+        computeList lst
