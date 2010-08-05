@@ -24,11 +24,11 @@ let conn = new System.Data.SQLite.SQLiteConnection("Data Source=:memory:;Version
 conn.Open()
 let cmd = conn.CreateCommand()
 printfn "Creating tables..."
-cmd.CommandText <- "create table person (personId guid primary key not null, firstname varchar, lastname varchar, homeAddressId varchar, workAddressId varchar)"
+cmd.CommandText <- "create table person (personId varchar primary key not null, firstname varchar, lastname varchar, homeAddressId varchar, workAddressId varchar)"
 cmd.ExecuteNonQuery() |> ignore
-cmd.CommandText <- "create table address (addressId guid primary key not null, street1 varchar, zip varchar)"
+cmd.CommandText <- "create table address (addressId varchar primary key not null, street1 varchar, zip varchar)"
 cmd.ExecuteNonQuery() |> ignore
-cmd.CommandText <- "create table personAltAddresses (addressId guid not null, personId guid not null)"
+cmd.CommandText <- "create table personAltAddresses (addressId varchar not null, personId varchar not null)"
 cmd.ExecuteNonQuery() |> ignore
 
 let db = Datastore(fun () -> upcast conn)
@@ -41,8 +41,8 @@ let address4 = { addressId = System.Guid.NewGuid().ToString(); street1 = "987 so
 //let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [address3; address4] }
 let newPerson = { personId = System.Guid.NewGuid().ToString(); firstname = "alex"; lastname = "pedenko"; homeAddress = address1; workAddress = address2; altAddresses = [ address3; address4 ] }
 
-//printf "\r\n Case 0"
-//db.Save newPerson |> ignore
+printf "\r\n Case 0"
+db.Save newPerson |> ignore
 
 printfn "\r\n\r\nCase 1\r\n" |> ignore
 let (neighbor: person seq) = db.Yield <@ Seq.filter (fun p -> p.homeAddress.zip = "60614") @>
