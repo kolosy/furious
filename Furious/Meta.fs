@@ -71,6 +71,8 @@ module Meta =
 
         member x.Save record =
             let cmd = conn().CreateCommand()
-            cmd.CommandText <- writeRecord x.Mapper false record
+            let sql = writeRecord x.Mapper false record
+            printfn "\r\n running sql \r\n%s" sql
+            cmd.CommandText <- sql
             cmd.CommandType <- System.Data.CommandType.Text
             cmd.ExecuteNonQuery()
