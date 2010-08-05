@@ -4,6 +4,7 @@ module RecordMapping =
     open Microsoft.FSharp.Reflection
     open Microsoft.FSharp.Collections
 
+    open System
     open System.Reflection
     open System.Data
 
@@ -32,19 +33,23 @@ module RecordMapping =
                     | Option (tp) -> 
                         match tp with
                         | Record ->
-                            if reader.GetValue(reader.GetOrdinal(prefix + "_" + elem.Name + mapper.GetPrimaryKeyName(tp).Value)) = (box System.DBNull.Value) then
+                            if reader.GetValue(reader.GetOrdinal(prefix + "_" + elem.Name + mapper.GetPrimaryKeyName(tp).Value)) = (box DBNull.Value) then
                                 createNone tp
                             else
                                 List.head (readRecord tp prefix mapper reader parentIdField false)
                                 |> createSome tp
                         | _ -> 
-                            if reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))) = (box System.DBNull.Value) then
+                            if reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))) = (box DBNull.Value) then
                                 createNone tp
                             else
                                 List.head (readRecord tp prefix mapper reader parentIdField false)
                                 |> createSome tp
                     | _ ->
-                        System.Convert.ChangeType(reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))), elem.PropertyType))
+                        let value = reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem)))
+                        try
+                            Convert.ChangeType(value, elem.PropertyType)
+                        with 
+                        | :? InvalidCastException -> failwithf "Could not convert %A to %A" value elem.PropertyType)
                 
             let newRecord = FSharpValue.MakeRecord (recordType, constrValues)
             match parentIdField, isSeq with
