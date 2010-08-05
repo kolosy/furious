@@ -1,5 +1,4 @@
-﻿// Learn more about F# at http://fsharp.net
-
+﻿
 open Furious.Meta
 
 type person = {
@@ -21,10 +20,18 @@ type personzip = {
     zip: string
 }
 
-let conn = new MySql.Data.MySqlClient.MySqlConnection("Server=localhost;Database=test;Uid=test;Pwd=test;") :> System.Data.Common.DbConnection
+let conn = new System.Data.SQLite.SQLiteConnection("Data Source=:memory:;Version=3;New=True")
 conn.Open()
+let cmd = conn.CreateCommand()
+printfn "Creating tables..."
+cmd.CommandText <- "create table person (personId guid primary key not null, firstname varchar, lastname varchar, homeAddressId varchar, workAddressId varchar)"
+cmd.ExecuteNonQuery() |> ignore
+cmd.CommandText <- "create table address (addressId guid primary key not null, street1 varchar, zip varchar)"
+cmd.ExecuteNonQuery() |> ignore
+cmd.CommandText <- "create table personAltAddresses (addressId guid not null, personId guid not null)"
+cmd.ExecuteNonQuery() |> ignore
 
-let db = Datastore(fun () -> conn)
+let db = Datastore(fun () -> upcast conn)
 
 let address1 = { addressId = System.Guid.NewGuid().ToString(); street1 = "1232 something"; zip = "60614" }
 let address2 = { addressId = System.Guid.NewGuid().ToString(); street1 = "456 something"; zip = "60614" }
