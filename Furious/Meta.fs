@@ -54,7 +54,7 @@ module Meta =
             let select = 
                 match collation with 
                 | Some "length" ->
-                    sprintf "count(*)"
+                    sprintf "count(distinct %s.%s)" prefix (x.Mapper.GetPrimaryKeyName(typeof<'a>).Value)
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
                 | None ->
                     computeSelectClause typeof<'a> prefix joins x.Mapper true

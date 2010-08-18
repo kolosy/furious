@@ -5,6 +5,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Furious", "Furious\Furious.
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Harness", "Harness\Harness.fsproj", "{AF30F8BA-3E16-4DE6-A786-84D28FED1759}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Test", "Test\Test.fsproj", "{750E5244-446C-4540-9A41-B2CB3787E076}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,16 @@ Global
 		{AF30F8BA-3E16-4DE6-A786-84D28FED1759}.Release|Mixed Platforms.Build.0 = Release|x86
 		{AF30F8BA-3E16-4DE6-A786-84D28FED1759}.Release|x86.ActiveCfg = Release|x86
 		{AF30F8BA-3E16-4DE6-A786-84D28FED1759}.Release|x86.Build.0 = Release|x86
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Release|Any CPU.Build.0 = Release|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{750E5244-446C-4540-9A41-B2CB3787E076}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
