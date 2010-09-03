@@ -6,34 +6,34 @@ module ValueUtils =
     open Interfaces
     open TypeUtils
 
-    let getId (record: obj) (mapper: IRecordMapper) =
+    let getId (record: obj) (context: context) =
         FSharpValue.GetRecordField(
             record,
             FSharpType.GetRecordFields(record.GetType())
             |> Array.pick (fun elem -> if elem.Name = 
-                                            (match (mapper.GetPrimaryKeyName <| record.GetType()) with
+                                            (match (context.mapper.GetPrimaryKeyName <| record.GetType()) with
                                              | Some v -> v | None -> failwith (sprintf "%A doesn't have an id field" (record.GetType()))) 
                                        then Some elem 
                                        else None))
 
-    let rec convertFrom (record: obj) (tp: System.Type) (mapper: IRecordMapper) = 
+    let rec convertFrom (record: obj) (tp: System.Type) (context: context) = 
         match record with
-        | :? string as str -> "'" + str + "'"
+        | :? string as str -> context.dialect.String str
         | _ when isOption (tp) ->
             match record with
-            | AsOption tp opt -> convertFrom opt (opt.GetType()) mapper
-            | _ -> "null"
+            | AsOption tp opt -> convertFrom opt (opt.GetType()) context
+            | _ -> context.dialect.NullValue
         | _ when FSharpType.IsRecord tp -> 
-            let fk = getId record mapper
-            convertFrom fk (fk.GetType()) mapper
+            let fk = getId record context
+            convertFrom fk (fk.GetType()) context
         | _ as v -> v.ToString()
 
-    let rec convertTo targetType (v: obj) (mapper: IRecordMapper) =
+    let rec convertTo targetType (v: obj) (context: context) =
         if typeof<System.Enum>.IsAssignableFrom(targetType) then
             System.Enum.ToObject(targetType, v :?> System.Int64)
         elif targetType.IsGenericType && targetType.GetGenericTypeDefinition() = typeof<Option<_>> then
             if v = (System.DBNull.Value :> obj) then None :> obj
-            else convertTo (targetType.GetGenericArguments().[0]) v mapper
+            else convertTo (targetType.GetGenericArguments().[0]) v context
         else
             System.Convert.ChangeType(v,targetType)
 

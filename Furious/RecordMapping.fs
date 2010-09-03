@@ -11,13 +11,15 @@ module RecordMapping =
     open Interfaces
     open TypeUtils
     open ValueUtils
+    open Definitions
 
-    let computeFieldNames recType alias (mapper: IRecordMapper) =
+    let computeFieldNames recType alias (context: context) =
         FSharpType.GetRecordFields (recType)
-        |> Array.map (fun e -> sprintf "%s.%s" alias (mapper.MapField e))
+        |> Array.map (fun e -> context.dialect.Qualify alias (context.mapper.MapField e))
+//        |> Array.map (fun e -> sprintf "%s.%s" alias (context.mapper.MapField e))
         |> String.concat ", "
 
-    let rec readRecord recordType prefix (mapper: IRecordMapper) (reader: System.Data.Common.DbDataReader) parentIdField isSeq =
+    let rec readRecord recordType prefix (context: context) (reader: System.Data.Common.DbDataReader) parentIdField isSeq =
         if FSharpType.IsRecord recordType then
             let constrValues = 
                 FSharpType.GetRecordFields (recordType)
@@ -25,27 +27,27 @@ module RecordMapping =
                     match elem.PropertyType with
                     | Sequence ->
                         let nestedType = elem.PropertyType.GetGenericArguments().[0]
-                        ((readRecord nestedType (prefix + "_" + elem.Name + "Seq") mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value)) true) 
+                        ((readRecord nestedType (prefix + "_" + elem.Name + "Seq") context reader (Some (prefix + context.mapper.GetPrimaryKeyName(recordType).Value)) true) 
                          |> asTypedList nestedType)
                     | Record -> 
-                        (readRecord elem.PropertyType (prefix + "_" + elem.Name) mapper reader (Some (prefix + mapper.GetPrimaryKeyName(recordType).Value)) false) 
+                        (readRecord elem.PropertyType (prefix + "_" + elem.Name) context reader (Some (prefix + context.mapper.GetPrimaryKeyName(recordType).Value)) false) 
                         |> List.head
                     | Option (tp) -> 
                         match tp with
                         | Record ->
-                            if reader.GetValue(reader.GetOrdinal(prefix + "_" + elem.Name + mapper.GetPrimaryKeyName(tp).Value)) = (box DBNull.Value) then
+                            if reader.GetValue(reader.GetOrdinal(prefix + "_" + elem.Name + context.mapper.GetPrimaryKeyName(tp).Value)) = (box DBNull.Value) then
                                 createNone tp
                             else
-                                List.head (readRecord tp prefix mapper reader parentIdField false)
+                                List.head (readRecord tp prefix context reader parentIdField false)
                                 |> createSome tp
                         | _ -> 
-                            if reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem))) = (box DBNull.Value) then
+                            if reader.GetValue(reader.GetOrdinal(prefix + context.mapper.MapField(elem))) = (box DBNull.Value) then
                                 createNone tp
                             else
-                                List.head (readRecord tp prefix mapper reader parentIdField false)
+                                List.head (readRecord tp prefix context reader parentIdField false)
                                 |> createSome tp
                     | _ ->
-                        let value = reader.GetValue(reader.GetOrdinal(prefix + mapper.MapField(elem)))
+                        let value = reader.GetValue(reader.GetOrdinal(prefix + context.mapper.MapField(elem)))
                         try
                             Convert.ChangeType(value, elem.PropertyType)
                         with 
@@ -58,7 +60,7 @@ module RecordMapping =
                 if reader.Read() then
                     let nextIdValue = reader.GetValue(reader.GetOrdinal(v))
                     if nextIdValue = idValue then
-                        newRecord :: readRecord recordType prefix mapper reader parentIdField true
+                        newRecord :: readRecord recordType prefix context reader parentIdField true
                     else
                         [newRecord]
                 else
@@ -68,7 +70,7 @@ module RecordMapping =
         else
             [System.Convert.ChangeType(reader.GetValue(0), recordType)]
 
-    let rec writeRecord (mapper:IRecordMapper) isInsert record =
+    let rec writeRecord (context: context) isInsert record =
         let fields = 
             FSharpType.GetRecordFields (record.GetType())
             |> Array.toList
@@ -88,20 +90,21 @@ module RecordMapping =
 
         // todo: this too encodes a specific 1:many structure. revisit.
         let writeSeqElem (prop: PropertyInfo) (elem: obj) = 
-            let id1, id2 = getId elem mapper, getId record mapper
-            [ sprintf "insert into %s (%s, %s) values (%s, %s)" 
-                (mapper.MapRecord (prop.PropertyType, prop)) 
-                (mapper.GetPrimaryKeyName (elem.GetType())).Value
-                (mapper.GetPrimaryKeyName (prop.DeclaringType)).Value
-                (convertFrom id1 (id1.GetType()) mapper) 
-                (convertFrom id2 (id2.GetType()) mapper);
-              writeRecord mapper isInsert elem ]
+            let id1, id2 = getId elem context, getId record context
+            [ context.dialect.InsertBridge 
+//            [ sprintf "insert into %s (%s, %s) values (%s, %s)" 
+                (context.mapper.MapRecord (prop.PropertyType, prop)) 
+                (context.mapper.GetPrimaryKeyName (elem.GetType())).Value
+                (context.mapper.GetPrimaryKeyName (prop.DeclaringType)).Value
+                (convertFrom id1 (id1.GetType()) context) 
+                (convertFrom id2 (id2.GetType()) context);
+              writeRecord context isInsert elem ]
 
         let rec generator currentRec (elem: PropertyInfo) = 
             match elem.PropertyType with
             | Sequence -> 
                 List.collect (writeSeqElem elem) ((elem.GetValue(currentRec, null) :?> seq<_>) |> Seq.toList)
-            | Record -> [writeRecord mapper isInsert (elem.GetValue(currentRec, null))]
+            | Record -> [writeRecord context isInsert (elem.GetValue(currentRec, null))]
             | Option t -> 
                 let info, values = FSharpValue.GetUnionFields(elem.GetValue(currentRec, null), elem.PropertyType)
                 match info.Name with
@@ -113,18 +116,24 @@ module RecordMapping =
             match 
                 (vector 
                  |> List.collect (generator record)
-                 |> String.concat ";\r\n") with
-            | "" -> ""
-            | _ as vSql -> vSql + ";\r\n"
+                 |> String.concat context.dialect.BatchSep) with
+            | "" -> emptyString
+            | _ as vSql -> vSql + context.dialect.BatchSep
 
         let names,values = 
             scalar
-            |> List.map (fun prop -> mapper.MapField prop, convertFrom (prop.GetValue(record, null)) (prop.PropertyType) mapper)
+            |> List.map (fun prop -> context.mapper.MapField prop, convertFrom (prop.GetValue(record, null)) (prop.PropertyType) context)
             |> List.unzip
 
-        sprintf "%s insert into %s (%s) values (%s)%s"
-            vectorSql
-            (mapper.MapRecord (record.GetType()))
-            (String.concat ", " names)
-            (String.concat ", " values)
-            (match vectorSql with | "" -> "" | _ -> ";")
+        vectorSql + " " + 
+            context.dialect.Insert 
+                (context.mapper.MapRecord (record.GetType()))
+                names
+                values
+                (String.IsNullOrWhiteSpace(vectorSql))
+//        sprintf "%s insert into %s (%s) values (%s)%s"
+//            vectorSql
+//            (context.mapper.MapRecord (record.GetType()))
+//            (String.concat ", " names)
+//            (String.concat ", " values)
+//            (match vectorSql with | emptyString -> emptyString | _ -> ";")

@@ -40,10 +40,12 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Definitions.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="TypeUtils.fs" />
     <Compile Include="ValueUtils.fs" />
     <Compile Include="Mapper.fs" />
+    <Compile Include="Dialect.fs" />
     <Compile Include="RecordMapping.fs" />
     <Compile Include="Join.fs" />
     <Compile Include="Expression.fs" />

@@ -45,5 +45,13 @@ This style lets you build type-safe expressions, with the resulting type being t
 Status
 ------------------------
 
-Furious is beyond raw right now. That said, it will hopefully pick up steam in the coming weeks. Currently, the plan is to build out basic SQL support, 
-with CouchDB after that. 
+Furious has become a functioning proof-of-concept. Work is underway to turn it into a usable product. It is currently pre-alpha.
+
+Tasks
+------------------------
+* Encapsulate raw sql into dialects (ongoing)
+* Add join directionality tracking (left|right|inner)
+* Add state tracking (insert v update)
+* Add transaction handling
+* Clean up column naming in generated sql
+* Refactor record serialization/deserialization (works, but code's hard to follow)
