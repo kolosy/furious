@@ -50,7 +50,7 @@ Furious has become a functioning proof-of-concept. Work is underway to turn it i
 Tasks
 ------------------------
 * Encapsulate raw sql into dialects (ongoing)
-* Add join directionality tracking (left|right|inner)
+* Add join directionality tracking (left|right|inner) (done)
 * Add state tracking (insert v update)
 * Add transaction handling
 * Clean up column naming in generated sql

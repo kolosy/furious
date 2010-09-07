@@ -22,4 +22,7 @@ module Mapper =
                                         | _ -> failwith (sprintf "%A is an unsupported field descriptor" field) ) with
                 | Record | Sequence -> field.Name + "Id"
                 | _ -> field.Name
+
             member x.GetPrimaryKeyName tp = Some (tp.Name + "Id") 
+
+            member x.GetTrackerName tp = if tp.GetProperty ("state") = null then None else Some "state"

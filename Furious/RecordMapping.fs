@@ -16,7 +16,6 @@ module RecordMapping =
     let computeFieldNames recType alias (context: context) =
         FSharpType.GetRecordFields (recType)
         |> Array.map (fun e -> context.dialect.Qualify alias (context.mapper.MapField e))
-//        |> Array.map (fun e -> sprintf "%s.%s" alias (context.mapper.MapField e))
         |> String.concat ", "
 
     let rec readRecord recordType prefix (context: context) (reader: System.Data.Common.DbDataReader) parentIdField isSeq =
@@ -47,13 +46,16 @@ module RecordMapping =
                                 List.head (readRecord tp prefix context reader parentIdField false)
                                 |> createSome tp
                     | _ ->
-                        let value = reader.GetValue(reader.GetOrdinal(prefix + context.mapper.MapField(elem)))
-                        try
-                            Convert.ChangeType(value, elem.PropertyType)
-                        with 
-                        | :? InvalidCastException -> failwithf "Could not convert %A to %A" value elem.PropertyType)
+                        if (match context.mapper.GetTrackerName(recordType) with | None -> false | Some v -> v = elem.Name) then null
+                        else
+                            let value = reader.GetValue(reader.GetOrdinal(prefix + context.mapper.MapField(elem)))
+                            try
+                                Convert.ChangeType(value, elem.PropertyType)
+                            with 
+                            | :? InvalidCastException -> failwithf "Could not convert %A to %A" value elem.PropertyType)
                 
             let newRecord = FSharpValue.MakeRecord (recordType, constrValues)
+            
             match parentIdField, isSeq with
             | Some v, true -> 
                 let idValue = reader.GetValue(reader.GetOrdinal(v))
@@ -92,7 +94,6 @@ module RecordMapping =
         let writeSeqElem (prop: PropertyInfo) (elem: obj) = 
             let id1, id2 = getId elem context, getId record context
             [ context.dialect.InsertBridge 
-//            [ sprintf "insert into %s (%s, %s) values (%s, %s)" 
                 (context.mapper.MapRecord (prop.PropertyType, prop)) 
                 (context.mapper.GetPrimaryKeyName (elem.GetType())).Value
                 (context.mapper.GetPrimaryKeyName (prop.DeclaringType)).Value
@@ -131,9 +132,3 @@ module RecordMapping =
                 names
                 values
                 (String.IsNullOrWhiteSpace(vectorSql))
-//        sprintf "%s insert into %s (%s) values (%s)%s"
-//            vectorSql
-//            (context.mapper.MapRecord (record.GetType()))
-//            (String.concat ", " names)
-//            (String.concat ", " values)
-//            (match vectorSql with | emptyString -> emptyString | _ -> ";")

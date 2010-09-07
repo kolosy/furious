@@ -35,10 +35,6 @@ module Expression =
                 opString
                 (traverseExpression prefix joins context left)
                 (traverseExpression prefix joins context right)
-
-//            let newLeft = traverseExpression prefix joins context left
-//            let newRight = traverseExpression prefix joins context right
-//            sprintf "(%s) %s (%s)" newLeft opString newRight
         else
             context.dialect.Boolean
                 opString

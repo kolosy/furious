@@ -37,7 +37,6 @@ module Meta =
             let from = computeFromClause typeof<'a> prefix context joins
 
             let sql = context.dialect.Select select from e
-//            let sql = sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then emptyString else "where " + e)
             printfn "\r\n running sql \r\n%s" sql
             seq {
                 use reader = x.RunSql sql
@@ -54,14 +53,12 @@ module Meta =
                 match collation with 
                 | Some "length" ->
                     context.dialect.DistinctCount prefix (context.mapper.GetPrimaryKeyName(typeof<'a>).Value)
-//                    sprintf "count(distinct %s.%s)" prefix (context.mapper.GetPrimaryKeyName(typeof<'a>).Value)
                 | Some e -> failwith (sprintf "unknown collation function %s" e)
                 | None ->
                     computeSelectClause typeof<'a> prefix joins context true
 
             let from = computeFromClause typeof<'a> prefix context joins
             let sql = context.dialect.Select select from e
-//            let sql = sprintf "select %s from %s %s" select from (if System.String.IsNullOrWhiteSpace e then emptyString else "where " + e)
             printfn "\r\n running sql \r\n%s" sql
             seq {
                 use reader = x.RunSql sql

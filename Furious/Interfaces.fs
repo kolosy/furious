@@ -14,6 +14,8 @@ module Interfaces =
         /// Retrieves the primary key for the given entity. Returns None if the underlying
         /// persistance system does not define the concept of primary keys
         abstract member GetPrimaryKeyName : Type -> String option
+        /// Retrieves the name of the field used to retain record state (new|retrieved)
+        abstract member GetTrackerName : Type -> String option
 
     type ISqlDialect =
         abstract member Select : string -> string -> string -> string

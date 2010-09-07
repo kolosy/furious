@@ -48,3 +48,8 @@ module ValueUtils =
         | [] -> lstTp.GetProperty("Empty").GetValue(null, null)
 
         computeList lst
+
+    let stateProperty (r: obj) (context: context) =
+        match context.mapper.GetTrackerName(r.GetType()) with
+        | Some s -> Some (r.GetType().GetProperty(s))
+        | None -> None

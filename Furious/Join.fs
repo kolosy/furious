@@ -84,17 +84,6 @@ module Join =
             (List.map (computeFromClauseInternal j.table j.alias context false) jl
                 |> String.concat emptyString)
 
-//        sprintf "%s inner join %s as %s on %s.%s = %s.%s %s"
-//            (if isFirst then sprintf "%s as %s" parentTableName parentTableAlias else emptyString)
-//            j.table
-//            j.alias
-//            parentTableAlias
-//            j.fkName
-//            j.alias
-//            j.pkName
-//            (List.map (computeFromClauseInternal j.table j.alias context false) jl
-//             |> String.concat emptyString)
-
     let computeFromClause (tp: System.Type) prefix (context: context) (v: compoundJoin list) = 
         let tName = context.mapper.MapRecord tp
         List.mapi (fun idx elem -> computeFromClauseInternal tName prefix context (idx = 0) elem) v
@@ -112,7 +101,6 @@ module Join =
                      |> List.map (fun e -> 
                                     let name = context.mapper.MapField e
                                     context.dialect.AliasColumn prefix name (prefix+name))))
-//                                    sprintf "%s.%s as %s%s" prefix name prefix name)))
                 (List.map (fun e -> 
                             let nestedJoin, joinList = unroll e
                             computeSelectClause nestedJoin.definingMember.PropertyType nestedJoin.alias joinList context (nestedJoin.selectable)) joins)
@@ -139,9 +127,7 @@ module Join =
                 getValue j.alias js context t
             | Option inner -> getValue prefix joins context t
             | _ -> context.dialect.Value prefix (context.mapper.MapField prop)
-//            | _ -> sprintf "%s.%s" prefix (context.mapper.MapField prop)
         | Var (e) -> getValue prefix joins context t
         | Value (v, tp) -> convertFrom v tp context
         | _ as e -> failwith <| sprintf "%A is an unexpected element" e
     | [] -> emptyString
-
